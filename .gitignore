@@ -1,0 +1,24 @@
+# Python
+
+
+# Environments
+.venv
+
+# Starlette & FastAPI
+.webaimage
+
+# 1. Ignore everything
+*
+
+# 2. Un-ignore .gitignore itself
+!.gitignore
+
+# 3. Un-ignore requirements.txt
+!requirements.txt
+
+# 4. Un-ignore the agent_creator directory and ALL its contents
+!agent_creator/
+!agent_creator/**
+
+__pycache__/
+agent_creator/__pycache__/ 
