@@ -49,6 +49,9 @@ def _generate_agent_python_code(agent_config: dict) -> str:
         if "ScrapeWebsiteTool" in sub_tools:
             tools_needed.add("ScrapeWebsiteTool")
             tools_list.append("scrape_tool")
+        if "EXASearchTool" in sub_tools:
+            tools_needed.add("EXASearchTool")
+            tools_list.append("EXASearchTool")
         
         tools_str = f"[{', '.join(tools_list)}]" if tools_list else "[]"
 
@@ -77,7 +80,7 @@ def _generate_agent_python_code(agent_config: dict) -> str:
         imports.append("from google.adk.tools.langchain_tool import LangchainTool")
         imports.append("from langchain_community.tools.yahoo_finance_news import YahooFinanceNewsTool")
     
-    if "BraveSearchTool" in tools_needed or "ScrapeWebsiteTool" in tools_needed:
+    if "BraveSearchTool" in tools_needed or "ScrapeWebsiteTool" in tools_needed or "EXASearchTool" in tools_needed:
         imports.append("from google.adk.tools.crewai_tool import CrewaiTool")
         
     if "BraveSearchTool" in tools_needed:
@@ -86,12 +89,26 @@ def _generate_agent_python_code(agent_config: dict) -> str:
     if "ScrapeWebsiteTool" in tools_needed:
         imports.append("from crewai_tools import ScrapeWebsiteTool")
     
+    if "EXASearchTool" in tools_needed:
+        imports.append("from crewai_tools import EXASearchTool")
+    
     if has_get_price:
         imports.append("import yfinance as yf")
+    
+    # Add os and dotenv imports if EXASearchTool is used
+    if "EXASearchTool" in tools_needed:
+        imports.insert(0, "import os")
+        imports.insert(1, "from dotenv import load_dotenv")
 
     # Build code
     code = imports
     code.append("")
+    
+    # Add load_dotenv() call if EXASearchTool is used
+    if "EXASearchTool" in tools_needed:
+        code.append("# Load environment variables")
+        code.append("load_dotenv()")
+        code.append("")
     
     # Add tool definitions if needed
     tool_definitions = []
@@ -121,6 +138,12 @@ def _generate_agent_python_code(agent_config: dict) -> str:
         tool_definitions.append("# Define scrape tool")
         tool_definitions.append("ScrapeSitetool = ScrapeWebsiteTool()")
         tool_definitions.append('scrape_tool = CrewaiTool(tool=ScrapeSitetool, name="scraper", description="Scrape a URL to get its content.")')
+        tool_definitions.append("")
+    
+    if "EXASearchTool" in tools_needed:
+        tool_definitions.append("# Define EXA search tool")
+        tool_definitions.append("EXASchTool = EXASearchTool(os.getenv('EXA_API_KEY'))")
+        tool_definitions.append('EXASearchTool = CrewaiTool(tool=EXASchTool, name="EXA_search", description="A tool for performing EXA searches using EXA.")')
         tool_definitions.append("")
     
     code.extend(tool_definitions)
