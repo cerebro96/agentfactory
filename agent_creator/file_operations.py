@@ -15,14 +15,18 @@ def create_init_py_file(target_dir_path: Path):
     except Exception as e:
         print(f"An unexpected error occurred while creating {init_file_path}: {e}")
 
-def create_env_file(api_key_value: str, target_dir_path: Path):
-    """Creates a .env file in the target directory with the provided API key."""
+def create_env_file(api_key_value: str, target_dir_path: Path, brave_api_key: str = None):
+    """Creates a .env file in the target directory with the provided API keys."""
     env_file_path = target_dir_path / ".env"
     content = f"GOOGLE_GENAI_USE_VERTEXAI=FALSE\nGOOGLE_API_KEY={api_key_value}\n"
+    
+    if brave_api_key:
+        content += f"BRAVE_API_KEY={brave_api_key}\n"
+    
     try:
         with open(env_file_path, "w") as f:
             f.write(content)
-        print(f"Successfully created {env_file_path} with API key.")
+        print(f"Successfully created {env_file_path} with API key(s).")
     except IOError as e:
         print(f"Error creating {env_file_path}: {e}")
     except Exception as e:
@@ -51,6 +55,15 @@ def create_agent_directory_structure(agent_config_json: str, base_output_dir: st
             if config.get("type") == "Multi Agent":
                 main_agent_name = config.get("name")
                 api_key = config.get("apiKey")
+                
+                # Check for BraveSearchAPIKey in connected_agents
+                brave_api_key = None
+                connected_agents = config.get("connected_agents", [])
+                for sub_agent in connected_agents:
+                    if "BraveSearchTool" in sub_agent.get("tools", ""):
+                        brave_api_key = sub_agent.get("BraveSearchAPIKey")
+                        if brave_api_key:
+                            break
 
                 if not main_agent_name or not isinstance(main_agent_name, str) or not main_agent_name.strip():
                     print(f"Skipping Multi Agent with missing or invalid name (id: {config.get('id')}).")
@@ -70,7 +83,7 @@ def create_agent_directory_structure(agent_config_json: str, base_output_dir: st
                     create_init_py_file(main_agent_dir)
                     
                     if api_key and isinstance(api_key, str) and api_key.strip():
-                        create_env_file(api_key, main_agent_dir)
+                        create_env_file(api_key, main_agent_dir, brave_api_key)
                     else:
                         print(f"Warning: 'apiKey' not found or invalid for agent '{safe_main_agent_name}'. Skipping .env file creation.")
                     
