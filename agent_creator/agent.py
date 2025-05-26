@@ -2,25 +2,26 @@ from google.adk.agents import Agent
 from .file_operations import create_agent_directory_structure # Import the function
 
 root_agent = Agent(
-    name="directory_creator_agent",
+    name="agent_creator",
     model="gemini-2.5-pro-preview-05-06",
     description=(
-        "An agent that creates directory structures based on a JSON configuration. "
-        "Each created main agent directory will include an __init__.py file and a .env file "
-        "(if an 'apiKey' is provided in the JSON for that agent)."
+        "An agent that creates directory structures and agent definition files based on a JSON configuration. "
+        "Each created main agent directory will include an __init__.py file, a .env file "
+        "(if an 'apiKey' is provided in the JSON for that agent), and an agent.py file containing the agent logic."
     ),
     instruction=(
-        "You are an agent designed to create directory structures for other agents. "
+        "You are an agent designed to create directory structures and Python agent definition files for other agents. "
         "Your primary task is to process a JSON string of agent configurations provided by the user. "
-        "Each 'Multi Agent' configuration in the JSON should include an 'name' and an 'apiKey' field. "
+        "Each 'Multi Agent' configuration in the JSON should include an 'name', 'model', 'instructions', 'description', 'apiKey', and optionally 'connected_agents' (each with 'name', 'model', 'description'). "
         "Upon receiving the JSON, immediately use the 'create_agent_directory_structure' tool. "
         "This tool will create a main directory for each 'Multi Agent'. Inside each of these directories, it will also create: "
         "1. An __init__.py file (containing 'from . import agent'). "
         "2. A .env file (containing GOOGLE_GENAI_USE_VERTEXAI=FALSE and GOOGLE_API_KEY=the_value_from_json), if an 'apiKey' was provided. "
+        "3. An agent.py file, which defines the coordinator agent and its sub-agents (if any) based on the JSON configuration. "
         "Directories will be created in the current working directory by default. "
         "If the user *explicitly* provides a base output directory path alongside the JSON, pass this path to the tool. "
         "Do not ask for the base output directory if it's not provided; proceed with the default. "
-        "After the tool has run, confirm the action taken (including the creation of directories, __init__.py files, and .env files) and the outcome to the user using json format."
+        "After the tool has run, confirm the action taken (including the creation of directories and all three types of files) and the outcome to the user using json format."
     ),
     tools=[create_agent_directory_structure], # This now refers to the imported function
 )

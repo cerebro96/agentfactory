@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from .main_agent_create import create_agent_definition_file
 
 def create_init_py_file(target_dir_path: Path):
     """Creates an __init__.py file in the target directory with 'from . import agent'."""
@@ -31,12 +32,13 @@ def create_agent_directory_structure(agent_config_json: str, base_output_dir: st
     """
     Parses agent configuration JSON. For each 'Multi Agent' type, creates:
     1. A main directory.
-    2. An __init__.py file within it (containing 'from . import agent').
-    3. A .env file within it (if 'apiKey' is provided in the config).
+    2. An __init__.py file within it.
+    3. A .env file within it (if 'apiKey' is provided).
+    4. An agent.py file with the agent definitions within it.
 
     Args:
         agent_config_json: A JSON string containing agent configurations.
-                           Each 'Multi Agent' config should have an 'apiKey' field.
+                           Each 'Multi Agent' config should have 'name' and 'apiKey' fields.
         base_output_dir: The base directory for new agent folders. Defaults to current directory.
     """
     try:
@@ -48,7 +50,7 @@ def create_agent_directory_structure(agent_config_json: str, base_output_dir: st
         for config in agent_configs:
             if config.get("type") == "Multi Agent":
                 main_agent_name = config.get("name")
-                api_key = config.get("apiKey") # Get the apiKey
+                api_key = config.get("apiKey")
 
                 if not main_agent_name or not isinstance(main_agent_name, str) or not main_agent_name.strip():
                     print(f"Skipping Multi Agent with missing or invalid name (id: {config.get('id')}).")
@@ -71,6 +73,9 @@ def create_agent_directory_structure(agent_config_json: str, base_output_dir: st
                         create_env_file(api_key, main_agent_dir)
                     else:
                         print(f"Warning: 'apiKey' not found or invalid for agent '{safe_main_agent_name}'. Skipping .env file creation.")
+                    
+                    # Create the agent.py definition file
+                    create_agent_definition_file(config, main_agent_dir)
 
                 except OSError as e:
                     print(f"Error during directory/file creation for {safe_main_agent_name}: {e}")
