@@ -52,6 +52,9 @@ def _generate_agent_python_code(agent_config: dict) -> str:
         if "EXASearchTool" in sub_tools:
             tools_needed.add("EXASearchTool")
             tools_list.append("EXASearchTool")
+        if "hyperbrowser_tool" in sub_tools:
+            tools_needed.add("hyperbrowser_tool")
+            tools_list.append("hyperbrowser_tool")
         
         tools_str = f"[{', '.join(tools_list)}]" if tools_list else "[]"
 
@@ -95,8 +98,12 @@ def _generate_agent_python_code(agent_config: dict) -> str:
     if has_get_price:
         imports.append("import yfinance as yf")
     
-    # Add os and dotenv imports if EXASearchTool is used
-    if "EXASearchTool" in tools_needed:
+    if "hyperbrowser_tool" in tools_needed:
+        imports.append("from hyperbrowser import Hyperbrowser")
+        imports.append("from hyperbrowser.models import StartBrowserUseTaskParams")
+    
+    # Add os and dotenv imports if EXASearchTool or hyperbrowser_tool is used
+    if "EXASearchTool" in tools_needed or "hyperbrowser_tool" in tools_needed:
         imports.insert(0, "import os")
         imports.insert(1, "from dotenv import load_dotenv")
 
@@ -104,8 +111,8 @@ def _generate_agent_python_code(agent_config: dict) -> str:
     code = imports
     code.append("")
     
-    # Add load_dotenv() call if EXASearchTool is used
-    if "EXASearchTool" in tools_needed:
+    # Add load_dotenv() call if EXASearchTool or hyperbrowser_tool is used
+    if "EXASearchTool" in tools_needed or "hyperbrowser_tool" in tools_needed:
         code.append("# Load environment variables")
         code.append("load_dotenv()")
         code.append("")
@@ -145,6 +152,23 @@ def _generate_agent_python_code(agent_config: dict) -> str:
         tool_definitions.append("EXASchTool = EXASearchTool(os.getenv('EXA_API_KEY'))")
         tool_definitions.append('EXASearchTool = CrewaiTool(tool=EXASchTool, name="EXA_search", description="A tool for performing EXA searches using EXA.")')
         tool_definitions.append("")
+    
+    if "hyperbrowser_tool" in tools_needed:
+        tool_definitions.extend([
+            "# Define Hyperbrowser tool",
+            "def hyperbrowser_tool(task: str):",
+            '    """Uses Hyperbrowser to perform browser automation tasks and extract information from websites."""',
+            "    hb_client = Hyperbrowser(api_key=os.getenv('HYPERBROWSER_API_KEY'))",
+            "    ",
+            "    try:",
+            "        resp = hb_client.agents.browser_use.start_and_wait(",
+            "            StartBrowserUseTaskParams(task=task)",
+            "        )",
+            "        return resp.data.final_result",
+            "    except Exception as e:",
+            '        return f"Error executing browser task: {e}"',
+            ""
+        ])
     
     code.extend(tool_definitions)
     
