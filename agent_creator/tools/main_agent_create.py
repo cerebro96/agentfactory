@@ -55,6 +55,9 @@ def _generate_agent_python_code(agent_config: dict) -> str:
         if "hyperbrowser_tool" in sub_tools:
             tools_needed.add("hyperbrowser_tool")
             tools_list.append("hyperbrowser_tool")
+        if "serper_tool" in sub_tools:
+            tools_needed.add("serper_tool")
+            tools_list.append("serper_tool")
         
         tools_str = f"[{', '.join(tools_list)}]" if tools_list else "[]"
 
@@ -83,7 +86,7 @@ def _generate_agent_python_code(agent_config: dict) -> str:
         imports.append("from google.adk.tools.langchain_tool import LangchainTool")
         imports.append("from langchain_community.tools.yahoo_finance_news import YahooFinanceNewsTool")
     
-    if "BraveSearchTool" in tools_needed or "ScrapeWebsiteTool" in tools_needed or "EXASearchTool" in tools_needed:
+    if "BraveSearchTool" in tools_needed or "ScrapeWebsiteTool" in tools_needed or "EXASearchTool" in tools_needed or "serper_tool" in tools_needed:
         imports.append("from google.adk.tools.crewai_tool import CrewaiTool")
         
     if "BraveSearchTool" in tools_needed:
@@ -95,6 +98,9 @@ def _generate_agent_python_code(agent_config: dict) -> str:
     if "EXASearchTool" in tools_needed:
         imports.append("from crewai_tools import EXASearchTool")
     
+    if "serper_tool" in tools_needed:
+        imports.append("from crewai_tools import SerperDevTool")
+    
     if has_get_price:
         imports.append("import yfinance as yf")
     
@@ -102,8 +108,8 @@ def _generate_agent_python_code(agent_config: dict) -> str:
         imports.append("from hyperbrowser import Hyperbrowser")
         imports.append("from hyperbrowser.models import StartBrowserUseTaskParams")
     
-    # Add os and dotenv imports if EXASearchTool or hyperbrowser_tool is used
-    if "EXASearchTool" in tools_needed or "hyperbrowser_tool" in tools_needed:
+    # Add os and dotenv imports if EXASearchTool, hyperbrowser_tool, or serper_tool is used
+    if "EXASearchTool" in tools_needed or "hyperbrowser_tool" in tools_needed or "serper_tool" in tools_needed:
         imports.insert(0, "import os")
         imports.insert(1, "from dotenv import load_dotenv")
 
@@ -111,8 +117,8 @@ def _generate_agent_python_code(agent_config: dict) -> str:
     code = imports
     code.append("")
     
-    # Add load_dotenv() call if EXASearchTool or hyperbrowser_tool is used
-    if "EXASearchTool" in tools_needed or "hyperbrowser_tool" in tools_needed:
+    # Add load_dotenv() call if EXASearchTool, hyperbrowser_tool, or serper_tool is used
+    if "EXASearchTool" in tools_needed or "hyperbrowser_tool" in tools_needed or "serper_tool" in tools_needed:
         code.append("# Load environment variables")
         code.append("load_dotenv()")
         code.append("")
@@ -169,6 +175,12 @@ def _generate_agent_python_code(agent_config: dict) -> str:
             '        return f"Error executing browser task: {e}"',
             ""
         ])
+    
+    if "serper_tool" in tools_needed:
+        tool_definitions.append("# Define Serper search tool")
+        tool_definitions.append("SerperDevToolInstance = SerperDevTool()")
+        tool_definitions.append('serper_tool = CrewaiTool(tool=SerperDevToolInstance, name="serper_search", description="A tool for performing web searches using Serper.")')
+        tool_definitions.append("")
     
     code.extend(tool_definitions)
     
