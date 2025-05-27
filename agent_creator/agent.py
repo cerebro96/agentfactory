@@ -27,7 +27,7 @@ root_agent = Agent(
         "Directories will be created in the current working directory by default. "
         "If the user *explicitly* provides a base output directory path alongside the JSON, pass this path to the tool. "
         "Do not ask for the base output directory if it's not provided; proceed with the default. "
-        "After the tool has run, confirm the action taken (including the creation of directories and all three types of files) and the outcome to the user using json format."
+        "After the tool has run, output only a JSON response in this format: {\"status\": 200, \"message\": \"Successfully created\"}."
     ),
     tools=[create_agent_directory_structure], # This now refers to the imported function
 )
