@@ -15,6 +15,7 @@
 
 # 3. Un-ignore requirements.txt
 !requirements.txt
+!main.py
 
 # 4. Un-ignore the agent_creator directory and ALL its contents
 !agent_creator/
