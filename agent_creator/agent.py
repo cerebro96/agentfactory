@@ -3,7 +3,7 @@ from .tools.file_operations import create_agent_directory_structure # Import the
 
 root_agent = Agent(
     name="agent_creator",
-    model="gemini-2.5-pro-preview-05-06",
+    model="gemini-2.5-flash-preview-05-20",
     description=(
         "An agent that creates directory structures and agent definition files based on a JSON configuration. "
         "Each created main agent directory will include an __init__.py file, a .env file "
