@@ -17,6 +17,7 @@
 !requirements.txt
 !main.py
 !Dockerfile
+!deployment.yaml
 
 # 4. Un-ignore the agent_creator directory and ALL its contents
 !agent_creator/
