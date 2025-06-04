@@ -55,15 +55,18 @@ spec:
   selector:
     app: adk-agent
 ---
-# ADD THIS PersistentVolumeClaim DEFINITION
+# UPDATED PersistentVolumeClaim DEFINITION
+# Note: You must delete the existing 'adk-agent-pvc' before applying this,
+# as 'accessModes' and 'storageClassName' are immutable after creation.
+# WARNING: Deleting the PVC will delete its data.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: adk-agent-pvc
 spec:
   accessModes:
-    - ReadWriteOnce # This means it can be mounted as read-write by a single node
-  storageClassName: standard # Use the default GKE StorageClass for Persistent Disks
+    - ReadWriteMany # CHANGED: Allows multiple nodes/pods to mount the volume read-write
+  storageClassName: standard-rwx # CHANGED: References the Filestore StorageClass
   resources:
     requests:
       storage: 10Gi # Request 10 GB of storage. Adjust this size as needed!
