@@ -12,7 +12,7 @@ SESSION_DB_URL = "sqlite:///./sessions.db"
 # Example allowed origins for CORS
 ALLOWED_ORIGINS = ["http://localhost", "http://localhost:8080", "*"]
 # Set web=True if you intend to serve a web interface, False otherwise
-SERVE_WEB_INTERFACE = True
+SERVE_WEB_INTERFACE = False
 
 # Call the function to get the FastAPI app instance
 # Ensure the agent directory name ('capital_agent') matches your agent folder
@@ -65,6 +65,10 @@ async def delete_folder(folder_name: str):
             status_code=500,
             detail=f"Error deleting folder: {str(e)}"
         )
+
+@app.get("/healthz")
+async def healthz():
+    return {"status": "ok"}
 
 if __name__ == "__main__":
     # Use the PORT environment variable provided by Cloud Run, defaulting to 8080
