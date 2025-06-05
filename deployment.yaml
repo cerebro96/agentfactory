@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: adk-agent
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: adk-agent
@@ -19,13 +19,13 @@ spec:
         image: australia-southeast2-docker.pkg.dev/aihealth-450705/adk-repo/adk-agent:latest
         resources:
           limits:
-            memory: "128Mi"
-            cpu: "500m"
-            ephemeral-storage: "128Mi" # ephemeral-storage is for temporary storage, separate from PVC
+            memory: "4Gi"
+            cpu: "1500m"
+            ephemeral-storage: "2Gi" # ephemeral-storage is for temporary storage, separate from PVC
           requests:
-            memory: "128Mi"
-            cpu: "500m"
-            ephemeral-storage: "128Mi" # ephemeral-storage is for temporary storage, separate from PVC
+            memory: "4Gi"
+            cpu: "1500m"
+            ephemeral-storage: "2Gi" # ephemeral-storage is for temporary storage, separate from PVC
         ports:
         - containerPort: 8080
         env:
