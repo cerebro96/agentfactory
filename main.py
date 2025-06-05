@@ -2,7 +2,7 @@ import os
 import shutil
 from pathlib import Path
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from google.adk.cli.fast_api import get_fast_api_app
 
 # Get the directory where main.py is located
@@ -68,7 +68,7 @@ async def delete_folder(folder_name: str):
 
 @app.get("/healthz")
 async def healthz():
-    return {"status": "ok"}
+    return Response(content="OK", status_code=200, media_type="text/plain")
 
 if __name__ == "__main__":
     # Use the PORT environment variable provided by Cloud Run, defaulting to 8080
