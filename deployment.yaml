@@ -13,6 +13,11 @@ spec:
         app: adk-agent
     spec:
       serviceAccount: adk-agent-sa
+      # securityContext:
+        # fsGroup: 1000 # This ensures the mounted volume is accessible to processes
+                      # running with group ID 1000 inside the container.
+                      # You can choose any valid group ID; 1000 is a common choice.
+      # --- END SECURITY CONTEXT ---
       containers:
       - name: adk-agent
         imagePullPolicy: Always
@@ -21,27 +26,48 @@ spec:
           limits:
             memory: "4Gi"
             cpu: "1500m"
-            ephemeral-storage: "2Gi" # ephemeral-storage is for temporary storage, separate from PVC
+            ephemeral-storage: "2Gi"
           requests:
             memory: "4Gi"
             cpu: "1500m"
-            ephemeral-storage: "2Gi" # ephemeral-storage is for temporary storage, separate from PVC
+            ephemeral-storage: "2Gi"
         ports:
         - containerPort: 8080
         env:
-          - name: PORT
-            value: "8080"
-          # If using AI Studio, set GOOGLE_GENAI_USE_VERTEXAI to false and set the following:
-          # - name: GOOGLE_API_KEY
-          #   value: GOOGLE_API_KEY
-          # Add any other necessary environment variables your agent might need
+        - name: PORT
+          value: "8080"
+        # - name: AGENT_DIR
+        #   value: "/app/data"
+        # - name: GOOGLE_API_KEY
+        #   value: GOOGLE_API_KEY
+        # Add any other necessary environment variables your agent might need
+
+        # --- ADDED HEALTH PROBES ---
+        livenessProbe:
+          httpGet:
+            path: /healthz # Replace with your actual health check endpoint
+            port: 8080
+          initialDelaySeconds: 30 # Time to wait before the first probe
+          periodSeconds: 120    # How often to probe
+          timeoutSeconds: 60     # When the probe times out
+          failureThreshold: 15   # How many failures before restarting
+        readinessProbe:
+          httpGet:
+            path: /healthz # Replace with your actual health check endpoint
+            port: 8080
+          initialDelaySeconds: 15 # Time to wait before the first probe
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3   # How many failures before marking as Unready
+        # --- END ADDED HEALTH PROBES ---
+
         volumeMounts:
         - name: adk-data-volume
           mountPath: /app/data # This is the "base directory" inside your container
       volumes:
       - name: adk-data-volume
         persistentVolumeClaim:
-          claimName: adk-agent-pvc # This references the PVC you'll define below
+          claimName: adk-agent-pvc # This references the PVC
 ---
 apiVersion: v1
 kind: Service
@@ -54,19 +80,16 @@ spec:
       targetPort: 8080
   selector:
     app: adk-agent
+  # sessionAffinity: ClientIP
 ---
-# UPDATED PersistentVolumeClaim DEFINITION
-# Note: You must delete the existing 'adk-agent-pvc' before applying this,
-# as 'accessModes' and 'storageClassName' are immutable after creation.
-# WARNING: Deleting the PVC will delete its data.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: adk-agent-pvc
 spec:
   accessModes:
-    - ReadWriteMany # CHANGED: Allows multiple nodes/pods to mount the volume read-write
-  storageClassName: standard-rwx # CHANGED: References the Filestore StorageClass
+    - ReadWriteMany
+  storageClassName: standard-rwx
   resources:
     requests:
-      storage: 10Gi # Request 10 GB of storage. Adjust this size as needed!
+      storage: 10Gi
