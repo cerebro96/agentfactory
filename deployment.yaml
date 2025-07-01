@@ -14,14 +14,14 @@ spec:
     spec:
       serviceAccount: adk-agent-sa
       # securityContext:
-        # fsGroup: 1000 # This ensures the mounted volume is accessible to processes
+      #   fsGroup: 1000 # This ensures the mounted volume is accessible to processes
                       # running with group ID 1000 inside the container.
                       # You can choose any valid group ID; 1000 is a common choice.
       # --- END SECURITY CONTEXT ---
       containers:
       - name: adk-agent
         imagePullPolicy: Always
-        image: australia-southeast2-docker.pkg.dev/aihealth-450705/adk-repo/adk-agent:latest
+        image: australia-southeast2-docker.pkg.dev/aihealth-450705/adk-repo/adk-agent:v1
         resources:
           limits:
             memory: "4Gi"
@@ -36,8 +36,8 @@ spec:
         env:
         - name: PORT
           value: "8080"
-        # - name: AGENT_DIR
-        #   value: "/app/data"
+        - name: AGENT_DIR
+          value: "/app"
         # - name: GOOGLE_API_KEY
         #   value: GOOGLE_API_KEY
         # Add any other necessary environment variables your agent might need
@@ -61,13 +61,13 @@ spec:
           failureThreshold: 3   # How many failures before marking as Unready
         # --- END ADDED HEALTH PROBES ---
 
-        volumeMounts:
-        - name: adk-data-volume
-          mountPath: /app/data # This is the "base directory" inside your container
-      volumes:
-      - name: adk-data-volume
-        persistentVolumeClaim:
-          claimName: adk-agent-pvc # This references the PVC
+      #   volumeMounts:
+      #   - name: adk-data-volume
+      #     mountPath: /app/data # This is the "base directory" inside your container
+      # volumes:
+      # - name: adk-data-volume
+      #   persistentVolumeClaim:
+      #     claimName: adk-agent-pvc # This references the PVC
 ---
 apiVersion: v1
 kind: Service
@@ -80,16 +80,16 @@ spec:
       targetPort: 8080
   selector:
     app: adk-agent
-  # sessionAffinity: ClientIP
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: adk-agent-pvc
-spec:
-  accessModes:
-    - ReadWriteMany
-  storageClassName: standard-rwx
-  resources:
-    requests:
-      storage: 10Gi
+#   sessionAffinity: ClientIP
+# ---
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: adk-agent-pvc
+# spec:
+#   accessModes:
+#     - ReadWriteMany
+#   storageClassName: standard-rwx
+#   resources:
+#     requests:
+#       storage: 10Gi
