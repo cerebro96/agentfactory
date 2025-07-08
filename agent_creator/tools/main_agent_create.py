@@ -24,51 +24,109 @@ def _generate_agent_python_code(agent_config: dict) -> str:
     tools_needed = set()
     has_get_price = False
     
-    for sub_agent_conf in connected_agents:
-        sub_name = sub_agent_conf.get("name", "UnnamedSubAgent")
-        sub_model = sub_agent_conf.get("model", "gemini-2.0-flash")
-        sub_instruction = sub_agent_conf.get("instruction", "You are a helpful sub-agent.")
-        sub_tools = sub_agent_conf.get("tools", "")
+    # Track if we need ParallelAgent or SequentialAgent
+    needs_parallel_agent = False
+    needs_sequential_agent = False
+    
+    def process_agent_recursive(agent_conf, is_sub_agent=False):
+        """Recursively process agents and their connected agents"""
+        nonlocal needs_parallel_agent, needs_sequential_agent
+        
+        agent_type = agent_conf.get("type", "LLM Agent")
+        sub_name = agent_conf.get("name", "UnnamedSubAgent")
+        sub_model = agent_conf.get("model", "gemini-2.0-flash")
+        sub_instruction = agent_conf.get("instruction", "You are a helpful sub-agent.")
+        sub_tools = agent_conf.get("tools", "")
+        sub_description = agent_conf.get("description", "An agent.")
         
         safe_sub_name_var = "".join(c if c.isalnum() else '_' for c in sub_name).lower() + "_agent"
         
         # Escape sub_instruction for use within a double-quoted string
         escaped_sub_instruction = sub_instruction.replace('"', '\\"')
+        escaped_sub_description = sub_description.replace('"', '\\"')
         
-        # Determine tools for this sub-agent
-        tools_list = []
-        if "YahooFinanceNewsTool" in sub_tools:
-            tools_needed.add("YahooFinanceNewsTool")
-            tools_list.append("news_tool")
-        if "get_price" in sub_tools:
-            has_get_price = True
-            tools_list.append("get_price")
-        if "BraveSearchTool" in sub_tools:
-            tools_needed.add("BraveSearchTool")
-            tools_list.append("search_tool")
-        if "ScrapeWebsiteTool" in sub_tools:
-            tools_needed.add("ScrapeWebsiteTool")
-            tools_list.append("scrape_tool")
-        if "EXASearchTool" in sub_tools:
-            tools_needed.add("EXASearchTool")
-            tools_list.append("EXASearchTool")
-        if "hyperbrowser_tool" in sub_tools:
-            tools_needed.add("hyperbrowser_tool")
-            tools_list.append("hyperbrowser_tool")
-        if "serper_tool" in sub_tools:
-            tools_needed.add("serper_tool")
-            tools_list.append("serper_tool")
-        
-        tools_str = f"[{', '.join(tools_list)}]" if tools_list else "[]"
+        if agent_type == "Parallel agent":
+            needs_parallel_agent = True
+            # Process connected agents first
+            nested_sub_agents = []
+            for nested_agent in agent_conf.get("connected_agents", []):
+                nested_agent_var = process_agent_recursive(nested_agent, True)
+                nested_sub_agents.append(nested_agent_var)
+            
+            nested_sub_agents_str = f"[{', '.join(nested_sub_agents)}]" if nested_sub_agents else "[]"
+            
+            sub_agent_code = f"""{safe_sub_name_var} = ParallelAgent(
+    name="{sub_name}",
+    sub_agents={nested_sub_agents_str},
+    description="{escaped_sub_description}"
+)"""
+            sub_agent_definitions.append(sub_agent_code)
+            if not is_sub_agent:
+                sub_agent_names_list.append(safe_sub_name_var)
+            return safe_sub_name_var
+            
+        elif agent_type == "Sequential agent":
+            needs_sequential_agent = True
+            # Process connected agents first
+            nested_sub_agents = []
+            for nested_agent in agent_conf.get("connected_agents", []):
+                nested_agent_var = process_agent_recursive(nested_agent, True)
+                nested_sub_agents.append(nested_agent_var)
+            
+            nested_sub_agents_str = f"[{', '.join(nested_sub_agents)}]" if nested_sub_agents else "[]"
+            
+            sub_agent_code = f"""{safe_sub_name_var} = SequentialAgent(
+    name="{sub_name}",
+    sub_agents={nested_sub_agents_str},
+    description="{escaped_sub_description}"
+)"""
+            sub_agent_definitions.append(sub_agent_code)
+            if not is_sub_agent:
+                sub_agent_names_list.append(safe_sub_name_var)
+            return safe_sub_name_var
+            
+        else:  # Regular LLM Agent
+            # Determine tools for this sub-agent
+            tools_list = []
+            if "YahooFinanceNewsTool" in sub_tools:
+                tools_needed.add("YahooFinanceNewsTool")
+                tools_list.append("news_tool")
+            if "get_price" in sub_tools:
+                nonlocal has_get_price
+                has_get_price = True
+                tools_list.append("get_price")
+            if "BraveSearchTool" in sub_tools:
+                tools_needed.add("BraveSearchTool")
+                tools_list.append("search_tool")
+            if "ScrapeWebsiteTool" in sub_tools:
+                tools_needed.add("ScrapeWebsiteTool")
+                tools_list.append("scrape_tool")
+            if "EXASearchTool" in sub_tools:
+                tools_needed.add("EXASearchTool")
+                tools_list.append("EXASearchTool")
+            if "hyperbrowser_tool" in sub_tools:
+                tools_needed.add("hyperbrowser_tool")
+                tools_list.append("hyperbrowser_tool")
+            if "serper_tool" in sub_tools:
+                tools_needed.add("serper_tool")
+                tools_list.append("serper_tool")
+            
+            tools_str = f"[{', '.join(tools_list)}]" if tools_list else "[]"
 
-        sub_agent_code = f"""{safe_sub_name_var} = Agent(
+            sub_agent_code = f"""{safe_sub_name_var} = Agent(
     name="{sub_name}",
     model="{sub_model}",
     instruction="{escaped_sub_instruction}",
     tools={tools_str}
 )"""
-        sub_agent_definitions.append(sub_agent_code)
-        sub_agent_names_list.append(safe_sub_name_var)
+            sub_agent_definitions.append(sub_agent_code)
+            if not is_sub_agent:
+                sub_agent_names_list.append(safe_sub_name_var)
+            return safe_sub_name_var
+    
+    # Process all connected agents
+    for sub_agent_conf in connected_agents:
+        process_agent_recursive(sub_agent_conf)
 
     sub_agents_list_str = ", ".join(sub_agent_names_list)
     if not sub_agents_list_str:
@@ -81,6 +139,15 @@ def _generate_agent_python_code(agent_config: dict) -> str:
 
     # Build imports section
     imports = ["from google.adk.agents import Agent, LlmAgent"]
+    
+    # Add ParallelAgent and SequentialAgent imports if needed
+    if needs_parallel_agent or needs_sequential_agent:
+        additional_imports = []
+        if needs_parallel_agent:
+            additional_imports.append("ParallelAgent")
+        if needs_sequential_agent:
+            additional_imports.append("SequentialAgent")
+        imports[0] = f"from google.adk.agents import Agent, LlmAgent, {', '.join(additional_imports)}"
     
     if "YahooFinanceNewsTool" in tools_needed:
         imports.append("from google.adk.tools.langchain_tool import LangchainTool")
@@ -186,7 +253,7 @@ def _generate_agent_python_code(agent_config: dict) -> str:
     
     # Add sub-agent definitions
     if sub_agent_definitions:
-        code.append("# Define sub-agents")
+        code.append("# Define agents")
     code.extend(sub_agent_definitions)
     if sub_agent_definitions:
         code.append("")
@@ -252,10 +319,11 @@ def create_agent_definition_file(agent_config: dict, target_dir_path: Path):
     python_code = _generate_agent_python_code(agent_config)
     
     try:
-        with open(agent_py_path, "w") as f:
+        # Explicitly specify UTF-8 encoding and handle encoding errors
+        with open(agent_py_path, "w", encoding="utf-8", errors="replace") as f:
             f.write(python_code)
         print(f"Successfully created agent definition file: {agent_py_path}")
     except IOError as e:
         print(f"Error creating agent definition file {agent_py_path}: {e}")
     except Exception as e:
-        print(f"An unexpected error occurred while creating agent definition file {agent_py_path}: {e}") 
+        print(f"An unexpected error occurred while creating agent definition file {agent_py_path}: {e}")
