@@ -5,6 +5,7 @@ def _generate_agent_python_code(agent_config: dict) -> str:
     """Generates the Python code string for an agent.py file based on the agent configuration."""
     agent_name = agent_config.get("name", "UnnamedAgent")
     agent_model = agent_config.get("model", "gemini-2.0-flash")
+    agent_provider = agent_config.get("provider", "gemini")
     
     # Handle instructions as either string or array
     agent_instructions = agent_config.get("instructions", "You are a helpful assistant.")
@@ -28,22 +29,55 @@ def _generate_agent_python_code(agent_config: dict) -> str:
     needs_parallel_agent = False
     needs_sequential_agent = False
     
+    # Track if we need LiteLLM
+    needs_litellm = agent_provider in ["anthropic", "openai", "deepseek"]
+    
     def process_agent_recursive(agent_conf, is_sub_agent=False):
         """Recursively process agents and their connected agents"""
-        nonlocal needs_parallel_agent, needs_sequential_agent
+        nonlocal needs_parallel_agent, needs_sequential_agent, needs_litellm
         
         agent_type = agent_conf.get("type", "LLM Agent")
         sub_name = agent_conf.get("name", "UnnamedSubAgent")
         sub_model = agent_conf.get("model", "gemini-2.0-flash")
+        sub_provider = agent_conf.get("provider", "gemini")
         sub_instruction = agent_conf.get("instruction", "You are a helpful sub-agent.")
         sub_tools = agent_conf.get("tools", "")
         sub_description = agent_conf.get("description", "An agent.")
+        
+        # Check if this sub-agent needs LiteLLM
+        if sub_provider in ["anthropic", "openai", "deepseek"]:
+            needs_litellm = True
         
         safe_sub_name_var = "".join(c if c.isalnum() else '_' for c in sub_name).lower() + "_agent"
         
         # Escape sub_instruction for use within a double-quoted string
         escaped_sub_instruction = sub_instruction.replace('"', '\\"')
         escaped_sub_description = sub_description.replace('"', '\\"')
+        
+        # Format model based on provider
+        if sub_provider == "anthropic":
+            # Add anthropic prefix if not already present
+            if not sub_model.startswith("anthropic/"):
+                formatted_model = f"anthropic/{sub_model}"
+            else:
+                formatted_model = sub_model
+            model_str = f'LiteLlm(model="{formatted_model}")'
+        elif sub_provider == "openai":
+            # Add openai prefix if not already present
+            if not sub_model.startswith("openai/"):
+                formatted_model = f"openai/{sub_model}"
+            else:
+                formatted_model = sub_model
+            model_str = f'LiteLlm(model="{formatted_model}")'
+        elif sub_provider == "deepseek":
+            # Add deepseek prefix if not already present
+            if not sub_model.startswith("deepseek/"):
+                formatted_model = f"deepseek/{sub_model}"
+            else:
+                formatted_model = sub_model
+            model_str = f'LiteLlm(model="{formatted_model}")'
+        else:
+            model_str = f'"{sub_model}"'
         
         if agent_type == "Parallel agent":
             needs_parallel_agent = True
@@ -115,7 +149,7 @@ def _generate_agent_python_code(agent_config: dict) -> str:
 
             sub_agent_code = f"""{safe_sub_name_var} = Agent(
     name="{sub_name}",
-    model="{sub_model}",
+    model={model_str},
     instruction="{escaped_sub_instruction}",
     tools={tools_str}
 )"""
@@ -148,6 +182,10 @@ def _generate_agent_python_code(agent_config: dict) -> str:
         if needs_sequential_agent:
             additional_imports.append("SequentialAgent")
         imports[0] = f"from google.adk.agents import Agent, LlmAgent, {', '.join(additional_imports)}"
+    
+    # Add LiteLLM import if needed
+    if needs_litellm:
+        imports.append("from google.adk.models.lite_llm import LiteLlm")
     
     if "YahooFinanceNewsTool" in tools_needed:
         imports.append("from google.adk.tools.langchain_tool import LangchainTool")
@@ -258,12 +296,37 @@ def _generate_agent_python_code(agent_config: dict) -> str:
     if sub_agent_definitions:
         code.append("")
     
+    # Format main agent model based on provider
+    if agent_provider == "anthropic":
+        # Add anthropic prefix if not already present
+        if not agent_model.startswith("anthropic/"):
+            formatted_main_model = f"anthropic/{agent_model}"
+        else:
+            formatted_main_model = agent_model
+        main_model_str = f'LiteLlm(model="{formatted_main_model}")'
+    elif agent_provider == "openai":
+        # Add openai prefix if not already present
+        if not agent_model.startswith("openai/"):
+            formatted_main_model = f"openai/{agent_model}"
+        else:
+            formatted_main_model = agent_model
+        main_model_str = f'LiteLlm(model="{formatted_main_model}")'
+    elif agent_provider == "deepseek":
+        # Add deepseek prefix if not already present
+        if not agent_model.startswith("deepseek/"):
+            formatted_main_model = f"deepseek/{agent_model}"
+        else:
+            formatted_main_model = agent_model
+        main_model_str = f'LiteLlm(model="{formatted_main_model}")'
+    else:
+        main_model_str = f'"{agent_model}"'
+    
     # Add coordinator definition with properly formatted instruction
     code.extend([
         "# Create the Coordinator Agent",
         f'coordinator = LlmAgent(',
         f'    name="{agent_name}",',
-        f'    model="{agent_model}",',
+        f'    model={main_model_str},',
         f'    description="{escaped_description}",',
     ])
     

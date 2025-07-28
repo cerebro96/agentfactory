@@ -15,10 +15,20 @@ def create_init_py_file(target_dir_path: Path):
     except Exception as e:
         print(f"An unexpected error occurred while creating {init_file_path}: {e}")
 
-def create_env_file(api_key_value: str, target_dir_path: Path, brave_api_key: str = None, exa_api_key: str = None, hyperbrowser_api_key: str = None, serper_api_key: str = None):
+def create_env_file(api_key_value: str, target_dir_path: Path, provider: str = "gemini", brave_api_key: str = None, exa_api_key: str = None, hyperbrowser_api_key: str = None, serper_api_key: str = None):
     """Creates a .env file in the target directory with the provided API keys."""
     env_file_path = target_dir_path / ".env"
-    content = f"GOOGLE_GENAI_USE_VERTEXAI=FALSE\nGOOGLE_API_KEY={api_key_value}\n"
+    
+    # Set the appropriate API key variable based on provider
+    content = f"GOOGLE_GENAI_USE_VERTEXAI=FALSE\n"
+    if provider == "anthropic":
+        content += f"ANTHROPIC_API_KEY={api_key_value}\n"
+    elif provider == "openai":
+        content += f"OPENAI_API_KEY={api_key_value}\n"
+    elif provider == "deepseek":
+        content += f"DEEPSEEK_API_KEY={api_key_value}\n"
+    else:
+        content += f"GOOGLE_API_KEY={api_key_value}\n"
     
     if brave_api_key:
         content += f"BRAVE_API_KEY={brave_api_key}\n"
@@ -64,6 +74,7 @@ def create_agent_directory_structure(agent_config_json: str, base_output_dir: st
             if config.get("type") == "Multi Agent":
                 main_agent_name = config.get("name")
                 api_key = config.get("apiKey")
+                provider = config.get("provider", "gemini")
                 
                 # Check for BraveSearchAPIKey, EXA_API_KEY, HYPERBROWSER_API_KEY, and SERPER_API_KEY in connected_agents
                 brave_api_key = None
@@ -99,7 +110,7 @@ def create_agent_directory_structure(agent_config_json: str, base_output_dir: st
                     create_init_py_file(main_agent_dir)
                     
                     if api_key and isinstance(api_key, str) and api_key.strip():
-                        create_env_file(api_key, main_agent_dir, brave_api_key, exa_api_key, hyperbrowser_api_key, serper_api_key)
+                        create_env_file(api_key, main_agent_dir, provider, brave_api_key, exa_api_key, hyperbrowser_api_key, serper_api_key)
                     else:
                         print(f"Warning: 'apiKey' not found or invalid for agent '{safe_main_agent_name}'. Skipping .env file creation.")
                     
