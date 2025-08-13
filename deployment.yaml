@@ -21,7 +21,7 @@ spec:
       containers:
       - name: adk-agent
         imagePullPolicy: Always
-        image: australia-southeast2-docker.pkg.dev/aihealth-450705/adk-repo/adk-agent:v3
+        image: australia-southeast2-docker.pkg.dev/aihealth-450705/adk-repo/adk-agent:v4.1.5
         resources:
           limits:
             memory: "4Gi"

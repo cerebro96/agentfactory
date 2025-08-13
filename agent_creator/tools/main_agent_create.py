@@ -24,6 +24,9 @@ def _generate_agent_python_code(agent_config: dict) -> str:
     # Track which tools are needed for imports
     tools_needed = set()
     has_get_price = False
+    has_mcp_tool = False
+    mcp_configs = []  # Store MCP configurations with agent info
+    mcp_toolsets = {}  # Map agent names to their MCP toolset variables
     
     # Track if we need ParallelAgent or SequentialAgent
     needs_parallel_agent = False
@@ -34,7 +37,7 @@ def _generate_agent_python_code(agent_config: dict) -> str:
     
     def process_agent_recursive(agent_conf, is_sub_agent=False):
         """Recursively process agents and their connected agents"""
-        nonlocal needs_parallel_agent, needs_sequential_agent, needs_litellm
+        nonlocal needs_parallel_agent, needs_sequential_agent, needs_litellm, has_mcp_tool, mcp_configs, mcp_toolsets
         
         agent_type = agent_conf.get("type", "LLM Agent")
         sub_name = agent_conf.get("name", "UnnamedSubAgent")
@@ -144,6 +147,23 @@ def _generate_agent_python_code(agent_config: dict) -> str:
             if "serper_tool" in sub_tools:
                 tools_needed.add("serper_tool")
                 tools_list.append("serper_tool")
+            if "mcp_tool" in sub_tools:
+                has_mcp_tool = True
+                # Store MCP configuration for this agent
+                mcp_config = agent_conf.get("mcp_config", {})
+                if mcp_config:
+                    # Create unique toolset variable name for this agent
+                    safe_agent_name = "".join(c if c.isalnum() else '_' for c in sub_name).lower()
+                    toolset_var_name = f"mcp_toolset_{safe_agent_name}"
+                    mcp_configs.append({
+                        "config": mcp_config,
+                        "agent_name": sub_name,
+                        "toolset_var": toolset_var_name
+                    })
+                    mcp_toolsets[sub_name] = toolset_var_name
+                    tools_list.append(toolset_var_name)
+                else:
+                    tools_list.append("mcp_toolset")
             
             tools_str = f"[{', '.join(tools_list)}]" if tools_list else "[]"
 
@@ -213,8 +233,13 @@ def _generate_agent_python_code(agent_config: dict) -> str:
         imports.append("from hyperbrowser import Hyperbrowser")
         imports.append("from hyperbrowser.models import StartBrowserUseTaskParams")
     
-    # Add os and dotenv imports if EXASearchTool, hyperbrowser_tool, or serper_tool is used
-    if "EXASearchTool" in tools_needed or "hyperbrowser_tool" in tools_needed or "serper_tool" in tools_needed:
+    if has_mcp_tool:
+        imports.append("from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPServerParams,SseConnectionParams")
+        imports.append("from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset")
+        imports.append("import json")
+    
+    # Add os and dotenv imports if EXASearchTool, hyperbrowser_tool, serper_tool, or mcp_tool is used
+    if "EXASearchTool" in tools_needed or "hyperbrowser_tool" in tools_needed or "serper_tool" in tools_needed or has_mcp_tool:
         imports.insert(0, "import os")
         imports.insert(1, "from dotenv import load_dotenv")
 
@@ -222,8 +247,8 @@ def _generate_agent_python_code(agent_config: dict) -> str:
     code = imports
     code.append("")
     
-    # Add load_dotenv() call if EXASearchTool, hyperbrowser_tool, or serper_tool is used
-    if "EXASearchTool" in tools_needed or "hyperbrowser_tool" in tools_needed or "serper_tool" in tools_needed:
+    # Add load_dotenv() call if EXASearchTool, hyperbrowser_tool, serper_tool, or mcp_tool is used
+    if "EXASearchTool" in tools_needed or "hyperbrowser_tool" in tools_needed or "serper_tool" in tools_needed or has_mcp_tool:
         code.append("# Load environment variables")
         code.append("load_dotenv()")
         code.append("")
@@ -286,6 +311,46 @@ def _generate_agent_python_code(agent_config: dict) -> str:
         tool_definitions.append("SerperDevToolInstance = SerperDevTool()")
         tool_definitions.append('serper_tool = CrewaiTool(tool=SerperDevToolInstance, name="serper_search", description="A tool for performing web searches using Serper.")')
         tool_definitions.append("")
+    
+    if has_mcp_tool:
+        tool_definitions.append("# Define MCP tools")
+        tool_definitions.append("")
+        
+        # Add MCPToolset definition for each MCP config with individual API keys
+        for mcp_info in mcp_configs:
+            mcp_config = mcp_info["config"]
+            mcp_agent_name = mcp_info["agent_name"]  # Use different variable name
+            toolset_var = mcp_info["toolset_var"]
+            mcp_url = mcp_config.get("url", "")
+            mcp_name = mcp_config.get("name", "MCP")
+
+            mcp_auth = mcp_config.get("authentication","No Authentication")
+            mcp_tr_proto = mcp_config.get("transport_protocol","HTTP")
+            # Create safe environment variable name for this agent
+            safe_mcp_agent_name = "".join(c.upper() if c.isalnum() else '_' for c in mcp_agent_name)  # Updated variable name
+            env_var_name = f"{safe_mcp_agent_name}_MCP_KEY"  # Updated variable name
+            headers_var_name = f"{safe_mcp_agent_name}_MCP_HEADERS"  # Updated variable name
+            if(mcp_auth == "Bearer Token"):
+                tool_definitions.append(f"# Define {mcp_name} toolset for {mcp_agent_name}")  # Updated variable name
+                tool_definitions.append(f"{env_var_name} = os.getenv('{env_var_name}')")
+                tool_definitions.append(f"{headers_var_name} = json.dumps(")
+                tool_definitions.append(f'    {{"Authorization": f"Bearer {{{env_var_name}}}","Content-Type": "application/json"}}')
+                tool_definitions.append(")")
+
+            tool_definitions.append("")
+            tool_definitions.append(f"{toolset_var} = MCPToolset(")
+            if(mcp_tr_proto == "HTTP"):
+                tool_definitions.append(f"    connection_params=StreamableHTTPServerParams(")
+            elif(mcp_tr_proto == "SSE"):
+                tool_definitions.append(f"    connection_params=SseConnectionParams(")
+
+            tool_definitions.append(f"        url='{mcp_url}',")
+            if(mcp_auth == "Bearer Token"):
+                tool_definitions.append(f"        env={{{headers_var_name}}}")
+
+            tool_definitions.append(f"    ),")
+            tool_definitions.append(f")")
+            tool_definitions.append("")
     
     code.extend(tool_definitions)
     

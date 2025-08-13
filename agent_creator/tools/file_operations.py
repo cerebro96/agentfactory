@@ -15,7 +15,7 @@ def create_init_py_file(target_dir_path: Path):
     except Exception as e:
         print(f"An unexpected error occurred while creating {init_file_path}: {e}")
 
-def create_env_file(api_key_value: str, target_dir_path: Path, provider: str = "gemini", brave_api_key: str = None, exa_api_key: str = None, hyperbrowser_api_key: str = None, serper_api_key: str = None):
+def create_env_file(api_key_value: str, target_dir_path: Path, provider: str = "gemini", brave_api_key: str = None, exa_api_key: str = None, hyperbrowser_api_key: str = None, serper_api_key: str = None, mcp_api_keys: dict = None):
     """Creates a .env file in the target directory with the provided API keys."""
     env_file_path = target_dir_path / ".env"
     
@@ -41,6 +41,10 @@ def create_env_file(api_key_value: str, target_dir_path: Path, provider: str = "
     
     if serper_api_key:
         content += f"SERPER_API_KEY={serper_api_key}\n"
+    
+    if mcp_api_keys:
+        for agent_name, api_key in mcp_api_keys.items():
+            content += f"{agent_name}_MCP_KEY={api_key}\n"
     
     try:
         with open(env_file_path, "w") as f:
@@ -76,11 +80,12 @@ def create_agent_directory_structure(agent_config_json: str, base_output_dir: st
                 api_key = config.get("apiKey")
                 provider = config.get("provider", "gemini")
                 
-                # Check for BraveSearchAPIKey, EXA_API_KEY, HYPERBROWSER_API_KEY, and SERPER_API_KEY in connected_agents
+                # Check for BraveSearchAPIKey, EXA_API_KEY, HYPERBROWSER_API_KEY, SERPER_API_KEY, and individual MCP_API_KEYs in connected_agents
                 brave_api_key = None
                 exa_api_key = None
                 hyperbrowser_api_key = None
                 serper_api_key = None
+                mcp_api_keys = {}  # Store individual MCP keys per agent
                 connected_agents = config.get("connected_agents", [])
                 for sub_agent in connected_agents:
                     if "BraveSearchTool" in sub_agent.get("tools", ""):
@@ -91,6 +96,14 @@ def create_agent_directory_structure(agent_config_json: str, base_output_dir: st
                         hyperbrowser_api_key = sub_agent.get("HYPERBROWSER_API_KEY")
                     if "serper_tool" in sub_agent.get("tools", ""):
                         serper_api_key = sub_agent.get("SERPER_API_KEY")
+                    if "mcp_tool" in sub_agent.get("tools", ""):
+                        agent_name = sub_agent.get("name", "")
+                        mcp_config = sub_agent.get("mcp_config", {})
+                        bearer_token = mcp_config.get("bearer_token")
+                        if agent_name and bearer_token:
+                            # Create safe environment variable name
+                            safe_agent_name = "".join(c.upper() if c.isalnum() else '_' for c in agent_name)
+                            mcp_api_keys[safe_agent_name] = bearer_token
 
                 if not main_agent_name or not isinstance(main_agent_name, str) or not main_agent_name.strip():
                     print(f"Skipping Multi Agent with missing or invalid name (id: {config.get('id')}).")
@@ -110,7 +123,7 @@ def create_agent_directory_structure(agent_config_json: str, base_output_dir: st
                     create_init_py_file(main_agent_dir)
                     
                     if api_key and isinstance(api_key, str) and api_key.strip():
-                        create_env_file(api_key, main_agent_dir, provider, brave_api_key, exa_api_key, hyperbrowser_api_key, serper_api_key)
+                        create_env_file(api_key, main_agent_dir, provider, brave_api_key, exa_api_key, hyperbrowser_api_key, serper_api_key, mcp_api_keys)
                     else:
                         print(f"Warning: 'apiKey' not found or invalid for agent '{safe_main_agent_name}'. Skipping .env file creation.")
                     
