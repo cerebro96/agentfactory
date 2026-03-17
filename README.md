@@ -1,4 +1,5 @@
-# Agent Creator
+# Agent Creator - Dynamic Code Generation API for Multi-Agent Systems
+https://www.mechsai.com/
 
 Agent Creator  is a robust FastAPI-based service designed to dynamically generate Python code and directory structures for AI agents. By sending a JSON payload describing your agent topology, this API automatically scaffolds the necessary folders, `.env` files, and executable `agent.py` scripts complete with tool integrations, LLM provider configurations, and nested sub-agents.
 
